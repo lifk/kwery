@@ -140,3 +140,7 @@ enum class ResultSetFetchDirection constructor(val value: Int) {
     Forward(ResultSet.FETCH_FORWARD),
     Reverse(ResultSet.FETCH_REVERSE);
 }
+
+object DefaultOptions {
+    const val MAX_FIELD_SIZE = 0
+}

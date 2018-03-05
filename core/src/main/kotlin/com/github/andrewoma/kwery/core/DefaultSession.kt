@@ -291,7 +291,11 @@ class DefaultSession(override val connection: Connection,
             // as some drivers (e.g. FileMaker) don't support setting of poolable
             statement.isPoolable = options.poolable
         }
-        statement.maxFieldSize = options.maxFieldSize
+        if (options.maxFieldSize != DefaultOptions.MAX_FIELD_SIZE) {
+            //apache hive driver doesn't support MAX_FIELD_SIZE
+            statement.maxFieldSize = options.maxFieldSize
+        }
+
         statement.queryTimeout = options.queryTimeout
 
         if (options.maxRows <= Integer.MAX_VALUE) {
