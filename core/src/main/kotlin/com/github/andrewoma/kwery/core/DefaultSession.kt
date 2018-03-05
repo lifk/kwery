@@ -214,7 +214,7 @@ class DefaultSession(override val connection: Connection,
                 is InputStream -> if (consumeStreams) dialect.bind(value, limit) else "<InputStream>"
                 is Reader -> if (consumeStreams) dialect.bind(value, limit) else "<Reader>"
                 is Collection<*> -> {
-                    value.map { if (it == null) "null" else dialect.bind(it, limit) }.joinToString(",")
+                    value.joinToString(",") { if (it == null) "null" else dialect.bind(it, limit) }
                 }
                 else -> dialect.bind(value, limit)
             }
@@ -338,7 +338,7 @@ class DefaultSession(override val connection: Connection,
         for ((i, value) in values.withIndex()) {
             ps.setObject(offset + i + 1, value)
         }
-        for (i in values.size..size - 1) {
+        for (i in values.size until size) {
             ps.setObject(offset + i + 1, null)
         }
     }

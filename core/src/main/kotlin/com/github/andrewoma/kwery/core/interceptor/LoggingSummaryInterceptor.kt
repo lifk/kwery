@@ -135,7 +135,7 @@ class LoggingSummaryInterceptor : StatementInterceptor {
         internal fun summariseRequest(executions: MutableList<Execution>): Pair<ExecutionSummary, List<ExecutionSummary>> {
             // Prematurely optimise with some imperative code to summarise without lots of collection creation
             // Group by statement name (and collect totals)
-            Collections.sort(executions, { e1, e2 -> e1.name.compareTo(e2.name) })
+            executions.sortWith(Comparator { e1, e2 -> e1.name.compareTo(e2.name) })
             val summaries = ArrayList<ExecutionSummary>(executions.size + 1)
 
             val total = ExecutionSummary("Total", 0L, 0L, 0L, 0L)
@@ -158,7 +158,7 @@ class LoggingSummaryInterceptor : StatementInterceptor {
             }
 
             // Sort by closed time descending (usually what you want unless streaming)
-            Collections.sort(summaries, { s1, s2 -> s1.closedTime.compareTo(s2.closedTime) * -1 })
+            summaries.sortWith(Comparator { s1, s2 -> s1.closedTime.compareTo(s2.closedTime) * -1 })
 
             return total to summaries
         }

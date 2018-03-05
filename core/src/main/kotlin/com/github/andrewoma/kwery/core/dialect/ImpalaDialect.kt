@@ -28,7 +28,7 @@ import java.sql.Date
 import java.sql.Time
 import java.sql.Timestamp
 
-open class MysqlDialect : Dialect {
+open class ImpalaDialect : Dialect {
 
     override fun bind(value: Any, limit: Int): String = when (value) {
         is String -> escapeSingleQuotedString(value.truncate(limit))

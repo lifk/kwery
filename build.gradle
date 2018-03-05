@@ -60,7 +60,10 @@ subprojects {
         compile(
                 "org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion",
                 "org.jetbrains.kotlin:kotlin-reflect:$kotlinVersion",
+                "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlinVersion",
                 "org.slf4j:slf4j-api:$slf4jVersion",
+                'io.prometheus:simpleclient:0.3.0',
+                'io.prometheus:simpleclient_hotspot:0.3.0'
         )
         testCompile(
                 "junit:junit:$junitVersion",
