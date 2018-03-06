@@ -39,11 +39,9 @@ class SessionFactory(val dataSource: DataSource,
 
     fun <R> use(f: (Session) -> R): R {
         val connection = dataSource.connection
-        try {
-            val session = DefaultSession(connection, dialect, interceptor, defaultOptions)
+        connection.use {
+            val session = DefaultSession(it, dialect, interceptor, defaultOptions)
             return f(session)
-        } finally {
-            connection.close()
         }
     }
 }

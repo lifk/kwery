@@ -26,7 +26,7 @@ import java.util.regex.Pattern
 
 data class BoundQuery(val originalQuery: String, val query: String, val bindings: List<String>)
 
-internal fun BoundQuery(query: String, inClauseSizes: Map<String, Int>): BoundQuery {
+internal fun createBoundQuery(query: String, inClauseSizes: Map<String, Int>): BoundQuery {
     val bindings = arrayListOf<String>()
     val bound = replaceBindings(query) { key ->
         bindings.add(key)

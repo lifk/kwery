@@ -192,7 +192,7 @@ class LoggingSummaryInterceptor : StatementInterceptor {
     override fun closed(statement: ExecutingStatement) {
         if (requests.get() == null) return
 
-        val rowCount = statement.rowsCounts.fold(0L, { acc, i -> acc + i })
+        val rowCount = statement.rowsCount.fold(0L, { acc, i -> acc + i })
         statement.context = statement.context.copy(closed = System.nanoTime(), rowCount = rowCount)
         requests.get()?.executions?.add(statement.context)
     }

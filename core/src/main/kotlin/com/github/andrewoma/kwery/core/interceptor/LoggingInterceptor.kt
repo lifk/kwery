@@ -92,7 +92,7 @@ open class LoggingInterceptor(val log: Logger = LoggerFactory.getLogger(LoggingI
         }
         val batch = statement.parametersList.size.let { if (it > 1) "for batch of $it " else "" }
 
-        val count = statement.rowsCounts
+        val count = statement.rowsCount
         val rowCount = when (count.size) {
             0 -> ""
             1 -> ". Rows affected: ${count.first()}"

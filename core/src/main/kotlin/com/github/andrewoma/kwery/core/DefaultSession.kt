@@ -61,7 +61,7 @@ class DefaultSession(override val connection: Connection,
     override val currentTransaction: Transaction?
         get() = transaction
 
-    /*internal*/var transaction: Transaction? = null
+    var transaction: Transaction? = null
 
     override fun <R> select(@Language("SQL") sql: String, parameters: Map<String, Any?>, options: StatementOptions, mapper: (Row) -> R): List<R> {
         return withPreparedStatement(sql, listOf(parameters), options) { statement, ps ->
@@ -69,16 +69,14 @@ class DefaultSession(override val connection: Connection,
 
             val result = arrayListOf<R>()
             val rs = ps.executeQuery()
-            try {
+            rs.use {
                 var count = 0
                 interceptor.executed(statement)
                 while (rs.next()) {
                     result.add(mapper(Row(rs)))
                     count++
                 }
-                statement.copy(rowsCounts = listOf(count)) to result
-            } finally {
-                rs.close()
+                statement.copy(rowsCount = listOf(count)) to result
             }
         }
     }
@@ -93,7 +91,7 @@ class DefaultSession(override val connection: Connection,
             }
             val rowsAffected = ps.executeBatch().toList()
             interceptor.executed(statement)
-            statement.copy(rowsCounts = rowsAffected) to rowsAffected
+            statement.copy(rowsCount = rowsAffected) to rowsAffected
         }
     }
 
@@ -109,15 +107,13 @@ class DefaultSession(override val connection: Connection,
             interceptor.executed(statement)
 
             val rs = ps.generatedKeys
-            try {
+            rs.use {
                 val keys = ArrayList<K>(parametersList.size)
                 while (rs.next()) {
                     keys.add(f(Row(rs)))
                 }
                 require(keys.size == parametersList.size) { "Expected ${parametersList.size} keys but received ${keys.size}" }
-                statement.copy(rowsCounts = rowsAffected) to rowsAffected.zip(keys)
-            } finally {
-                rs.close()
+                statement.copy(rowsCount = rowsAffected) to rowsAffected.zip(keys)
             }
         }
     }
@@ -127,7 +123,7 @@ class DefaultSession(override val connection: Connection,
             bindParameters(parameters, statement)
             val rowsAffected = ps.executeUpdate()
             interceptor.executed(statement)
-            statement.copy(rowsCounts = listOf(rowsAffected)) to rowsAffected
+            statement.copy(rowsCount = listOf(rowsAffected)) to rowsAffected
         }
     }
 
@@ -137,31 +133,24 @@ class DefaultSession(override val connection: Connection,
             val rowsAffected = ps.executeUpdate()
             interceptor.executed(statement)
             val rs = ps.generatedKeys
-            try {
+            rs.use {
                 require(rs.next()) { "No generated key received" }
                 val keys = f(Row(rs))
-                statement.copy(rowsCounts = listOf(rowsAffected)) to (rowsAffected to keys)
-            } finally {
-                rs.close()
+                statement.copy(rowsCount = listOf(rowsAffected)) to (rowsAffected to keys)
             }
         }
     }
 
-    override fun <R> asSequence(@Language("SQL") sql: String,
-                                parameters: Map<String, Any?>,
-                                options: StatementOptions,
-                                f: (Sequence<Row>) -> R): R {
+    override fun <R> asSequence(@Language("SQL") sql: String, parameters: Map<String, Any?>, options: StatementOptions, f: (Sequence<Row>) -> R): R {
 
         return withPreparedStatement(sql, listOf(parameters), options) { statement, ps ->
             bindParameters(parameters, statement)
             val rs = ps.executeQuery()
-            try {
+            rs.use {
                 interceptor.executed(statement)
                 val rowSequence = RowSequence(rs)
                 val result = f(rowSequence)
-                statement.copy(rowsCounts = listOf(rowSequence.count)) to result
-            } finally {
-                rs.close()
+                statement.copy(rowsCount = listOf(rowSequence.count)) to result
             }
         }
     }
@@ -183,29 +172,23 @@ class DefaultSession(override val connection: Connection,
         }
     }
 
-    override fun forEach(@Language("SQL") sql: String, parameters: Map<String, Any?>, options: StatementOptions, f: (Row) -> Unit): Unit {
+    override fun forEach(@Language("SQL") sql: String, parameters: Map<String, Any?>, options: StatementOptions, f: (Row) -> Unit) {
         withPreparedStatement(sql, listOf(parameters), options) { statement, ps ->
             bindParameters(parameters, statement)
             val rs = ps.executeQuery()
-            try {
+            rs.use {
                 interceptor.executed(statement)
                 var count = 0
                 while (rs.next()) {
                     count++
                     f(Row(rs))
                 }
-                statement.copy(rowsCounts = listOf(count)) to 1
-            } finally {
-                rs.close()
+                statement.copy(rowsCount = listOf(count)) to 1
             }
         }
     }
 
-    override fun bindParameters(@Language("SQL") sql: String,
-                                parameters: Map<String, Any?>,
-                                closeParameters: Boolean,
-                                limit: Int,
-                                consumeStreams: Boolean): String {
+    override fun bindParameters(@Language("SQL") sql: String, parameters: Map<String, Any?>, closeParameters: Boolean, limit: Int, consumeStreams: Boolean): String {
 
         return replaceBindings(sql) { key ->
             val value = parameters[key]
@@ -229,7 +212,9 @@ class DefaultSession(override val connection: Connection,
         return DefaultTransaction(this)
     }
 
-    private fun <R> withPreparedStatement(sql: String, parameters: List<Map<String, Any?>> = listOf(), options: StatementOptions,
+    private fun <R> withPreparedStatement(sql: String,
+                                          parameters: List<Map<String, Any?>> = listOf(),
+                                          options: StatementOptions,
                                           f: (ExecutingStatement, PreparedStatement) -> Pair<ExecutingStatement, R>): R {
         var statement = ExecutingStatement(this, hashMapOf(), sql, parameters, options)
         try {
@@ -239,7 +224,7 @@ class DefaultSession(override val connection: Connection,
 
             val namedQuery = namedQueryCache.getOrPut(createStatementCacheKey(options, sql, statement)) {
                 val transformedSql = dialect.applyLimitAndOffset(options.limit, options.offset, sql.trimIndent())
-                BoundQuery(transformedSql, statement.inClauseSizes)
+                createBoundQuery(transformedSql, statement.inClauseSizes)
             }
 
             statement = statement.copy(sql = namedQuery.originalQuery)
@@ -265,7 +250,7 @@ class DefaultSession(override val connection: Connection,
 
     private fun createStatementCacheKey(options: StatementOptions, sql: String, statement: ExecutingStatement): StatementCacheKey {
         return StatementCacheKey(sql, statement.inClauseSizes, if (options.applyNameToQuery) options.name else null,
-                options.limit != null, options.offset != null)
+            options.limit != null, options.offset != null)
     }
 
     private fun prepareStatement(sql: String, options: StatementOptions): PreparedStatement {
@@ -347,16 +332,16 @@ class DefaultSession(override val connection: Connection,
 class TypedParameter(val value: Any?, val sqlType: Int)
 
 data class ExecutingStatement(
-        val session: Session,
-        val contexts: MutableMap<String, Any?>,
-        val sql: String,
-        val parametersList: List<Map<String, Any?>>,
-        val options: StatementOptions,
-        val preparedSql: String? = null,
-        val preparedParameters: List<String> = arrayListOf(),
-        val statement: Statement? = null,
-        val inClauseSizes: Map<String, Int> = mapOf(),
-        val rowsCounts: List<Int> = listOf()
+    val session: Session,
+    val contexts: MutableMap<String, Any?>,
+    val sql: String,
+    val parametersList: List<Map<String, Any?>>,
+    val options: StatementOptions,
+    val preparedSql: String? = null,
+    val preparedParameters: List<String> = arrayListOf(),
+    val statement: Statement? = null,
+    val inClauseSizes: Map<String, Int> = mapOf(),
+    val rowsCount: List<Int> = listOf()
 )
 
 /**
