@@ -54,22 +54,11 @@ internal fun inClauseSizes(parametersList: List<Map<String, Any?>>): Map<String,
 
     for (parameters in parametersList) {
         for ((key, value) in parameters) {
-            if (value is Collection<*> && value.size != 0) {
-                sizes[key] = Math.max(inClauseSize(value.size), sizes[key] ?: 0)
+            if (value is Collection<*> && value.isNotEmpty()) {
+                sizes[key] = value.size
             }
         }
     }
 
     return sizes
-}
-
-private fun inClauseSize(size: Int): Int {
-    var num = size
-    var count = 1
-    while (num != 0) {
-        num = num shr 1
-        count++
-    }
-    if (count < 3) count = 3
-    return Math.pow(2.toDouble(), count.toDouble()).toInt()
 }
